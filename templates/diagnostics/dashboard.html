@@ -5,13 +5,13 @@
   <div class="col-md-4">
     <div class="card shadow-sm">
       <div class="card-body">
-        <h5 class="card-title">Último Speed Test</h5>
+        <h5 class="card-title">&Uacute;ltimo Speed Test</h5>
         {% if last_speed %}
           <p class="mb-1">Bajada: <strong>{{ last_speed.download_mbps }} Mbps</strong></p>
           <p class="mb-1">Subida: <strong>{{ last_speed.upload_mbps }} Mbps</strong></p>
           <p class="mb-0">Ping: <strong>{{ last_speed.ping_ms }} ms</strong></p>
         {% else %}
-          <p class="text-muted">Aún no se ejecutó.</p>
+          <p class="text-muted">A&uacute;n no se ejecut&oacute;.</p>
         {% endif %}
         <a href="/speedtest/" class="btn btn-primary mt-3">Ejecutar</a>
       </div>
@@ -40,8 +40,8 @@
   <div class="col-lg-8 col-12">
     <div class="card shadow-sm">
       <div class="card-body">
-        <h5 class="card-title">Gráfico Speed Test</h5>
-        <img src="{% url 'speed_chart_image' %}" alt="Gráfico Speed Test" class="img-fluid" style="max-height:260px;">
+        <h5 class="card-title">Gr&aacute;fico Speed Test</h5>
+        <img src="{% url 'speed_chart_image' %}" alt="Gr&aacute;fico Speed Test" class="img-fluid" style="max-height:260px;">
       </div>
     </div>
   </div>
