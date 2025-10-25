@@ -17,5 +17,12 @@
     {% endfor %}
   </tbody>
 </table>
+{% if not request.user.is_authenticated %}
+<div class="alert alert-info mt-3">
+  ¿Te gustaría guardar tus resultados y acceder al historial? 
+  <a href="/signup/" class="alert-link">Regístrate gratis</a> o 
+  <a href="/accounts/login/?next={{ request.path }}" class="alert-link">ingresa</a>.
+</div>
+{% endif %}
 <a class="btn btn-secondary" href="/">Volver</a>
 {% endblock %}

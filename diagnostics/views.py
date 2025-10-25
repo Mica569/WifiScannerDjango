@@ -1,7 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from .models import SpeedTest, Device, WiFiNetwork, TrafficSample
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib import messages
 
 # Importar servicios (logica original)
 from .services.network_scanner import NetworkScanner
@@ -114,3 +116,17 @@ def report_csv(request):
     resp = HttpResponse(buff.getvalue(), content_type='text/csv; charset=utf-8')
     resp['Content-Disposition'] = 'attachment; filename="reporte.csv"'
     return resp
+
+
+def signup(request):
+    if request.user.is_authenticated:
+        return redirect('/')
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Registro exitoso. Ahora puedes iniciar sesión.')
+            return redirect('/accounts/login/?next=/')
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/signup.html', {'form': form})
