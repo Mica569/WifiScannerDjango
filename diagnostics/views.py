@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+﻿from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from .models import SpeedTest, Device, WiFiNetwork, TrafficSample
@@ -7,7 +7,7 @@ from django.contrib import messages
 from io import BytesIO
 import math
 
-# Renderizado de gráficos en servidor (PNG)
+# Renderizado de grÃ¡ficos en servidor (PNG)
 try:
     import matplotlib
     matplotlib.use('Agg')  # backend sin GUI
@@ -27,7 +27,7 @@ def dashboard(request):
     last_speed = SpeedTest.objects.order_by('-created_at').first()
     devices_count = Device.objects.filter(created_at__date=timezone.now().date()).count()
     wifi_count = WiFiNetwork.objects.filter(created_at__date=timezone.now().date()).count()
-    # Valores seguros para JS (números, sin filtros en template)
+    # Valores seguros para JS (nÃºmeros, sin filtros en template)
     speed_dl = float(getattr(last_speed, 'download_mbps', 0) or 0)
     speed_ul = float(getattr(last_speed, 'upload_mbps', 0) or 0)
     speed_ping = float(getattr(last_speed, 'ping_ms', 0) or 0)
@@ -136,55 +136,90 @@ def signup(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Registro exitoso. Ahora puedes iniciar sesión.')
+            messages.success(request, 'Registro exitoso. Ahora puedes iniciar sesiÃ³n.')
             return redirect('/accounts/login/?next=/')
     else:
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
 
 
+
 def speed_chart_image(request):
-    """PNG con barras Descarga/Subida/Ping del último SpeedTest.
-    Si matplotlib no está disponible, devuelve una imagen mínima de placeholder.
+    """PNG con evolución (últimos 20) + resumen de promedios/medianas.
+    Si matplotlib no está disponible, devuelve un PNG mínimo.
     """
-    # Datos base
-    last_speed = SpeedTest.objects.order_by('-created_at').first()
-    download = float(getattr(last_speed, 'download_mbps', 0) or 0)
-    upload = float(getattr(last_speed, 'upload_mbps', 0) or 0)
-    ping = float(getattr(last_speed, 'ping_ms', 0) or 0)
+    last_tests = list(SpeedTest.objects.order_by("-created_at")[:20])
+    last_tests.reverse()
 
-    # Si no hay matplotlib, devolver placeholder PNG muy simple
-    if not plt:
-        pixel = BytesIO()
-        # PNG de 1x1 blanco
-        pixel.write(
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\x99c```\xf8\xff\x9f\x01\x00\x06\x05\x02\x15\x9d\x82\x8b\x0d\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
-        resp = HttpResponse(pixel.getvalue(), content_type='image/png')
-        return resp
-
-    labels = ['Descarga', 'Subida', 'Ping (ms)']
-    values = [download, upload, ping]
-    colors = ['#0d6efd', '#198754', '#6c757d']
-
-    buf = BytesIO()
-    try:
+    if not last_tests:
+        if not plt:
+            pixel = BytesIO()
+            pixel.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\x99c```\xf8\xff\x9f\x01\x00\x06\x05\x02\x15\x9d\x82\x8b\x0d\x00\x00\x00\x00IEND\xaeB`\x82")
+            return HttpResponse(pixel.getvalue(), content_type="image/png")
+        buf = BytesIO()
         fig, ax = plt.subplots(figsize=(6, 3))
-        ax.bar(labels, values, color=colors)
-        ymax = max(1.0, max(values) * 1.25)
-        ax.set_ylim(0, ymax)
-        ax.set_title('Último Speed Test')
-        for i, v in enumerate(values):
-            ax.text(i, v + ymax * 0.02, f"{v:.2f}", ha='center', va='bottom', fontsize=9)
-        ax.grid(axis='y', linestyle=':', alpha=0.4)
+        ax.text(0.5, 0.5, "Sin datos", ha="center", va="center", fontsize=12)
+        ax.axis("off")
         fig.tight_layout()
-        fig.savefig(buf, format='png', dpi=150)
+        fig.savefig(buf, format="png", dpi=150)
         plt.close(fig)
         buf.seek(0)
-        return HttpResponse(buf.getvalue(), content_type='image/png')
-    except Exception:
+        return HttpResponse(buf.getvalue(), content_type="image/png")
+
+    xs = list(range(1, len(last_tests) + 1))
+    dls = [float(getattr(s, "download_mbps", 0) or 0) for s in last_tests]
+    uls = [float(getattr(s, "upload_mbps", 0) or 0) for s in last_tests]
+    pings = [float(getattr(s, "ping_ms", 0) or 0) for s in last_tests]
+
+    if not plt:
+        pixel = BytesIO()
+        pixel.write(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\x99c```\xf8\xff\x9f\x01\x00\x06\x05\x02\x15\x9d\x82\x8b\x0d\x00\x00\x00\x00IEND\xaeB`\x82")
+        return HttpResponse(pixel.getvalue(), content_type="image/png")
+
+    import statistics as stats
+    def smean(v):
         try:
-            plt.close('all')
+            return stats.mean(v)
         except Exception:
-            pass
-        return HttpResponse(buf.getvalue(), content_type='image/png')
+            return 0.0
+    def smedian(v):
+        try:
+            return stats.median(v)
+        except Exception:
+            return 0.0
+
+    dl_mean, dl_med = smean(dls), smedian(dls)
+    ul_mean, ul_med = smean(uls), smedian(uls)
+    pg_mean, pg_med = smean(pings), smedian(pings)
+
+    from matplotlib.gridspec import GridSpec
+    buf = BytesIO()
+    fig = plt.figure(figsize=(9, 4))
+    gs = GridSpec(1, 2, width_ratios=[3, 2])
+    ax = fig.add_subplot(gs[0, 0])
+    ax.plot(xs, dls, "-o", color="#0d6efd", label="Descarga (Mbps)")
+    ax.plot(xs, uls, "-o", color="#198754", label="Subida (Mbps)")
+    ax.set_xlabel("Muestras recientes")
+    ax.set_ylabel("Mbps")
+    ax.set_title(f"Evolución últimos {len(xs)} Speed Tests")
+    ax.grid(True, linestyle=":", alpha=0.5)
+    ax.legend(loc="lower right")
+
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2.axis("off")
+    start = last_tests[0].created_at
+    end = last_tests[-1].created_at
+    lines = [
+        f"Rango: {start:%d/%m %H:%M} → {end:%d/%m %H:%M}",
+        f"N = {len(xs)}",
+        f"Bajada: media {dl_mean:.2f} | mediana {dl_med:.2f}",
+        f"Subida: media {ul_mean:.2f} | mediana {ul_med:.2f}",
+        f"Ping:   media {pg_mean:.2f} | mediana {pg_med:.2f}",
+    ]
+    ax2.text(0.02, 0.98, "\n".join(lines), va="top", ha="left", fontsize=11)
+
+    fig.tight_layout()
+    fig.savefig(buf, format="png", dpi=150)
+    plt.close(fig)
+    buf.seek(0)
+    return HttpResponse(buf.getvalue(), content_type="image/png")
