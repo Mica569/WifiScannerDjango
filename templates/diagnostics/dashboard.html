@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="mb-3">Panel</h1>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Último Speed Test</h5>
+        {% if last_speed %}
+          <p class="mb-1">Bajada: <strong>{{ last_speed.download_mbps }} Mbps</strong></p>
+          <p class="mb-1">Subida: <strong>{{ last_speed.upload_mbps }} Mbps</strong></p>
+          <p class="mb-0">Ping: <strong>{{ last_speed.ping_ms }} ms</strong></p>
+        {% else %}
+          <p class="text-muted">Aún no se ejecutó.</p>
+        {% endif %}
+        <a href="/speedtest/" class="btn btn-primary mt-3">Ejecutar</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Dispositivos Hoy</h5>
+        <p class="display-6">{{ devices_count }}</p>
+        <a href="/devices/" class="btn btn-primary">Escanear</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Redes WiFi Hoy</h5>
+        <p class="display-6">{{ wifi_count }}</p>
+        <a href="/wifi/" class="btn btn-primary">Analizar</a>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row g-3 mt-2">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Gráfico Speed Test</h5>
+        <canvas id="speedChart" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Actividad Hoy</h5>
+        <canvas id="activityChart" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      function drawBarFallback(canvas, values, labels, colors) {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const W = canvas.width = canvas.clientWidth || 600;
+        const H = canvas.height = canvas.clientHeight || 200;
+        ctx.clearRect(0,0,W,H);
+        const max = Math.max(1, ...values);
+        const bw = Math.min(120, (W - 40) / values.length - 20);
+        const baseY = H - 30;
+        ctx.font = '12px system-ui';
+        values.forEach((v, i) => {
+          const x = 20 + i * (bw + 20);
+          const h = Math.round(((H - 60) * v) / max);
+          ctx.fillStyle = colors[i] || '#0d6efd';
+          ctx.fillRect(x, baseY - h, bw, h);
+          ctx.fillStyle = '#111';
+          ctx.fillText(labels[i], x, baseY + 14);
+          ctx.fillText(String(v), x, baseY - h - 6);
+        });
+      }
+
+      function drawDoughnutFallback(canvas, values, labels, colors) {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const W = canvas.width = canvas.clientWidth || 600;
+        const H = canvas.height = canvas.clientHeight || 200;
+        ctx.clearRect(0,0,W,H);
+        const cx = W/2, cy = H/2, r = Math.min(W,H)/3;
+        const total = Math.max(1, values.reduce((a,b)=>a+b,0));
+        let angle = -Math.PI/2;
+        values.forEach((v,i)=>{
+          const slice = (v/total) * Math.PI*2;
+          ctx.beginPath();
+          ctx.moveTo(cx,cy);
+          ctx.arc(cx,cy,r, angle, angle+slice);
+          ctx.closePath();
+          ctx.fillStyle = colors[i] || '#0d6efd';
+          ctx.fill();
+          angle += slice;
+        });
+        // inner hole
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath(); ctx.arc(cx,cy,r*0.6,0,Math.PI*2); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        // legend
+        ctx.font = '12px system-ui';
+        labels.forEach((lb,i)=>{
+          ctx.fillStyle = colors[i];
+          ctx.fillRect(10,10+i*18,10,10);
+          ctx.fillStyle = '#111';
+          ctx.fillText(lb+': '+values[i], 26, 19+i*18);
+        });
+      }
+
+      function initCharts() {
+        const ds = {
+          download: {{ speed_dl }},
+          upload: {{ speed_ul }},
+          ping: {{ speed_ping }}
+        };
+        const devs = {{ devices_count|default:0 }};
+        const wifis = {{ wifi_count|default:0 }};
+
+        const c1 = document.getElementById('speedChart');
+        const c2 = document.getElementById('activityChart');
+        // Si Chart.js está disponible, úsalo; si no, usar fallback canvas
+        if (window.Chart) {
+          try { if (window._speedChart) window._speedChart.destroy(); } catch(_) {}
+          window._speedChart = new Chart(c1, {
+            type: 'bar',
+            data: {
+              labels: ['Descarga','Subida','Ping (ms)'],
+              datasets: [{ label: 'Última', data: [ds.download, ds.upload, ds.ping], backgroundColor: ['#0d6efd','#198754','#6c757d'] }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } } }
+          });
+          try { if (window._activityChart) window._activityChart.destroy(); } catch(_) {}
+          window._activityChart = new Chart(c2, {
+            type: 'doughnut',
+            data: { labels: ['Dispositivos','Redes WiFi'], datasets: [{ data: [devs, wifis], backgroundColor: ['#6610f2','#fd7e14'] }] },
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+          });
+        } else {
+          drawBarFallback(c1, [ds.download, ds.upload, ds.ping], ['Descarga','Subida','Ping'], ['#0d6efd','#198754','#6c757d']);
+          drawDoughnutFallback(c2, [devs, wifis], ['Dispositivos','Redes WiFi'], ['#6610f2','#fd7e14']);
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', initCharts);
+      window.addEventListener('pageshow', initCharts);
+      window.addEventListener('pagehide', function() {
+        try { if (window._speedChart) window._speedChart.destroy(); } catch(_) {}
+        try { if (window._activityChart) window._activityChart.destroy(); } catch(_) {}
+        window._speedChart = null; window._activityChart = null;
+      });
+    })();
+  </script>
+</div>
+{% endblock %}

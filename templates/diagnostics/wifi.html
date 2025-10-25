@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Redes WiFi Disponibles</h1>
+<table class="table table-striped">
+  <thead><tr><th>SSID</th><th>BSSID</th><th>Señal</th><th>Canal</th><th>Seguridad</th></tr></thead>
+  <tbody>
+    {% for n in networks %}
+      <tr>
+        <td>{{ n.ssid }}</td>
+        <td>{{ n.bssid }}</td>
+        <td>{{ n.signal }}</td>
+        <td>{{ n.channel }}</td>
+        <td>{{ n.security }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="text-muted">No se detectaron redes (pueden faltar permisos o utilidades del sistema).</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<a class="btn btn-secondary" href="/">Volver</a>
+{% endblock %}

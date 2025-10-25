@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Resultado de Speed Test</h1>
+{% if error %}
+<div class="alert alert-warning">No se pudo ejecutar la prueba real ({{ error }}). Se muestran valores 0 como referencia.</div>
+{% endif %}
+<ul class="list-group">
+  <li class="list-group-item">Descarga: <strong>{{ speed.download_mbps }} Mbps</strong></li>
+  <li class="list-group-item">Subida: <strong>{{ speed.upload_mbps }} Mbps</strong></li>
+  <li class="list-group-item">Ping: <strong>{{ speed.ping_ms }} ms</strong></li>
+</ul>
+<a class="btn btn-secondary mt-3" href="/">Volver</a>
+{% endblock %}

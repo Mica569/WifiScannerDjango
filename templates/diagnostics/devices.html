@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Dispositivos Conectados</h1>
+<table class="table table-striped">
+  <thead><tr><th>IP</th><th>MAC</th><th>Hostname</th></tr></thead>
+  <tbody>
+    {% for d in devices %}
+      <tr><td>{{ d.ip }}</td><td>{{ d.mac }}</td><td>{{ d.hostname }}</td></tr>
+    {% empty %}
+      <tr><td colspan="3" class="text-muted">No se encontraron dispositivos (pueden faltar permisos o utilidades del sistema).</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<a class="btn btn-secondary" href="/">Volver</a>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Reporte</h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <p class="text-muted mb-0">Resumen de últimas mediciones</p>
+  <a class="btn btn-outline-primary" href="/report.csv">Descargar CSV</a>
+  </div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Speed Tests (10 más recientes)</h5>
+        <table class="table table-sm">
+          <thead><tr><th>Fecha</th><th>Down</th><th>Up</th><th>Ping</th></tr></thead>
+          <tbody>
+            {% for s in last_tests %}
+              <tr>
+                <td>{{ s.created_at }}</td>
+                <td>{{ s.download_mbps }}</td>
+                <td>{{ s.upload_mbps }}</td>
+                <td>{{ s.ping_ms }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-muted">Sin datos.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Tráfico (10 más recientes)</h5>
+        <table class="table table-sm">
+          <thead><tr><th>Fecha</th><th>IP</th><th>Down</th><th>Up</th></tr></thead>
+          <tbody>
+            {% for t in last_traffic %}
+              <tr>
+                <td>{{ t.created_at }}</td>
+                <td>{{ t.ip }}</td>
+                <td>{{ t.download_mbps }}</td>
+                <td>{{ t.upload_mbps }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-muted">Sin datos.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<a class="btn btn-secondary mt-3" href="/">Volver</a>
+{% endblock %}
+
