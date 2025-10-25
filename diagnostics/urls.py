@@ -10,4 +10,5 @@ urlpatterns = [
     path('report/', views.report_view, name='report'),
     path('report.csv', views.report_csv, name='report_csv'),
     path('signup/', views.signup, name='signup'),
+    path('chart/speed.png', views.speed_chart_image, name='speed_chart_image'),
 ]

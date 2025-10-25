@@ -4,6 +4,17 @@ from django.utils import timezone
 from .models import SpeedTest, Device, WiFiNetwork, TrafficSample
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
+from io import BytesIO
+import math
+
+# Renderizado de gráficos en servidor (PNG)
+try:
+    import matplotlib
+    matplotlib.use('Agg')  # backend sin GUI
+    import matplotlib.pyplot as plt
+except Exception:
+    matplotlib = None
+    plt = None
 
 # Importar servicios (logica original)
 from .services.network_scanner import NetworkScanner
@@ -130,3 +141,50 @@ def signup(request):
     else:
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
+
+
+def speed_chart_image(request):
+    """PNG con barras Descarga/Subida/Ping del último SpeedTest.
+    Si matplotlib no está disponible, devuelve una imagen mínima de placeholder.
+    """
+    # Datos base
+    last_speed = SpeedTest.objects.order_by('-created_at').first()
+    download = float(getattr(last_speed, 'download_mbps', 0) or 0)
+    upload = float(getattr(last_speed, 'upload_mbps', 0) or 0)
+    ping = float(getattr(last_speed, 'ping_ms', 0) or 0)
+
+    # Si no hay matplotlib, devolver placeholder PNG muy simple
+    if not plt:
+        pixel = BytesIO()
+        # PNG de 1x1 blanco
+        pixel.write(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDAT\x08\x99c```\xf8\xff\x9f\x01\x00\x06\x05\x02\x15\x9d\x82\x8b\x0d\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        resp = HttpResponse(pixel.getvalue(), content_type='image/png')
+        return resp
+
+    labels = ['Descarga', 'Subida', 'Ping (ms)']
+    values = [download, upload, ping]
+    colors = ['#0d6efd', '#198754', '#6c757d']
+
+    buf = BytesIO()
+    try:
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.bar(labels, values, color=colors)
+        ymax = max(1.0, max(values) * 1.25)
+        ax.set_ylim(0, ymax)
+        ax.set_title('Último Speed Test')
+        for i, v in enumerate(values):
+            ax.text(i, v + ymax * 0.02, f"{v:.2f}", ha='center', va='bottom', fontsize=9)
+        ax.grid(axis='y', linestyle=':', alpha=0.4)
+        fig.tight_layout()
+        fig.savefig(buf, format='png', dpi=150)
+        plt.close(fig)
+        buf.seek(0)
+        return HttpResponse(buf.getvalue(), content_type='image/png')
+    except Exception:
+        try:
+            plt.close('all')
+        except Exception:
+            pass
+        return HttpResponse(buf.getvalue(), content_type='image/png')
