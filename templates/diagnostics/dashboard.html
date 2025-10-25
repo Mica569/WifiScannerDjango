@@ -37,7 +37,7 @@
   </div>
 </div>
 <div class="row g-3 mt-2">
-  <div class="col-md-6">
+  <div class="col-lg-8 col-12">
     <div class="card shadow-sm">
       <div class="card-body">
         <h5 class="card-title">Gráfico Speed Test</h5>
@@ -45,7 +45,19 @@
       </div>
     </div>
   </div>
-  
+  <div class="col-lg-4 col-12">
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="d-flex align-items-center justify-content-center text-center text-muted" style="min-height:200px;background:repeating-linear-gradient(45deg,#f8f9fa,#f8f9fa 10px,#e9ecef 10px,#e9ecef 20px);">
+          <div>
+            <div class="fw-semibold">Espacio para anuncios</div>
+            <small>(Ejemplo 300x250)</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function() {
       function drawBarFallback(canvas, values, labels, colors) {
@@ -125,9 +137,15 @@
           }); } catch (e) { drawBarFallback(c1, [ds.download, ds.upload, ds.ping], ['Descarga','Subida','Ping'], ['#0d6efd','#198754','#6c757d']); }
         } else {
           drawBarFallback(c1, [ds.download, ds.upload, ds.ping], ['Descarga','Subida','Ping'], ['#0d6efd','#198754','#6c757d']);
-        }
-      }
-
+        }        setTimeout(function(){
+          try {
+            var r = c1.getBoundingClientRect();
+            if (r.width < 20 || r.height < 20) {
+              try { if (window._speedChart && window._speedChart.destroy) window._speedChart.destroy(); } catch(_) {}
+              drawBarFallback(c1, [ds.download, ds.upload, ds.ping], ['Descarga','Subida','Ping'], ['#0d6efd','#198754','#6c757d']);
+            }
+          } catch(_) {}
+        }, 250);
       document.addEventListener('DOMContentLoaded', initCharts);
       window.addEventListener('pageshow', initCharts);
       window.addEventListener('pagehide', function() {
@@ -138,3 +156,4 @@
   </script>
 </div>
 {% endblock %}
+
