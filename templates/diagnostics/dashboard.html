@@ -41,18 +41,11 @@
     <div class="card shadow-sm">
       <div class="card-body">
         <h5 class="card-title">Gráfico Speed Test</h5>
-        <canvas id="speedChart" height="120"></canvas>
+        <canvas id="speedChart" style="width:100%;" height="200"></canvas>
       </div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title">Actividad Hoy</h5>
-        <canvas id="activityChart" height="120"></canvas>
-      </div>
-    </div>
-  </div>
+  
   <script>
     (function() {
       function drawBarFallback(canvas, values, labels, colors) {
@@ -119,27 +112,19 @@
         const wifis = {{ wifi_count|default:0 }};
 
         const c1 = document.getElementById('speedChart');
-        const c2 = document.getElementById('activityChart');
         // Si Chart.js está disponible, úsalo; si no, usar fallback canvas
         if (window.Chart) {
           try { if (window._speedChart) window._speedChart.destroy(); } catch(_) {}
-          window._speedChart = new Chart(c1, {
+          try { window._speedChart = new Chart(c1, {
             type: 'bar',
             data: {
               labels: ['Descarga','Subida','Ping (ms)'],
               datasets: [{ label: 'Última', data: [ds.download, ds.upload, ds.ping], backgroundColor: ['#0d6efd','#198754','#6c757d'] }]
             },
             options: { responsive: true, plugins: { legend: { display: false } } }
-          });
-          try { if (window._activityChart) window._activityChart.destroy(); } catch(_) {}
-          window._activityChart = new Chart(c2, {
-            type: 'doughnut',
-            data: { labels: ['Dispositivos','Redes WiFi'], datasets: [{ data: [devs, wifis], backgroundColor: ['#6610f2','#fd7e14'] }] },
-            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-          });
+          }); } catch (e) { drawBarFallback(c1, [ds.download, ds.upload, ds.ping], ['Descarga','Subida','Ping'], ['#0d6efd','#198754','#6c757d']); }
         } else {
           drawBarFallback(c1, [ds.download, ds.upload, ds.ping], ['Descarga','Subida','Ping'], ['#0d6efd','#198754','#6c757d']);
-          drawDoughnutFallback(c2, [devs, wifis], ['Dispositivos','Redes WiFi'], ['#6610f2','#fd7e14']);
         }
       }
 
@@ -147,8 +132,7 @@
       window.addEventListener('pageshow', initCharts);
       window.addEventListener('pagehide', function() {
         try { if (window._speedChart) window._speedChart.destroy(); } catch(_) {}
-        try { if (window._activityChart) window._activityChart.destroy(); } catch(_) {}
-        window._speedChart = null; window._activityChart = null;
+        window._speedChart = null;
       });
     })();
   </script>
