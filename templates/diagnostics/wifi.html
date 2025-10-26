@@ -1,6 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
 <h1>Redes WiFi Disponibles</h1>
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="card-title mb-2">Resumen del adaptador Wi‑Fi</h5>
+    <div class="row">
+      <div class="col-md-4"><small class="text-muted">Interfaz</small><div><strong>{{ resumen.interfaz }}</strong></div></div>
+      <div class="col-md-4"><small class="text-muted">Estado</small><div><strong>{{ resumen.estado }}</strong></div></div>
+      <div class="col-md-4"><small class="text-muted">SSID actual</small><div><strong>{{ resumen.ssid }}</strong></div></div>
+    </div>
+  </div>
+  <div class="border-top p-2 pt-3"><small class="text-muted">Si aparece “-”, podría requerir permisos/utilidades o no hay conexión Wi‑Fi activa.</small></div>
+  </div>
 <table class="table table-striped">
   <thead><tr><th>SSID</th><th>BSSID</th><th>Señal</th><th>Canal</th><th>Seguridad</th></tr></thead>
   <tbody>

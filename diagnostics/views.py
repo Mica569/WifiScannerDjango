@@ -2,6 +2,8 @@
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from datetime import timedelta
+import platform, subprocess, shutil, re
+from datetime import timedelta
 from .models import SpeedTest, Device, WiFiNetwork, TrafficSample
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
@@ -96,7 +98,8 @@ def wifi_view(request):
             security=n.get('security', ''),
         ) for n in nets
     ])
-    return render(request, 'diagnostics/wifi.html', {'networks': nets})
+    summary = _wifi_adapter_summary()
+    return render(request, 'diagnostics/wifi.html', {'networks': nets, 'resumen': summary})
 
 
 def traffic_view(request):
@@ -159,7 +162,6 @@ def signup(request):
 
 def diagnostics_info(request):
     """Página de diagnóstico: muestra salida cruda de comandos usados para escaneos."""
-    import platform, subprocess, shutil, re
     os_name = platform.system()
     info = []
     resumen = {
@@ -263,6 +265,74 @@ def diagnostics_info(request):
         'info': info,
         'resumen': resumen,
     })
+
+
+def _wifi_adapter_summary():
+    """Devuelve un dict con interfaz/estado/ssid actual, por OS."""
+    def run(cmd):
+        try:
+            out = subprocess.check_output(cmd, text=True, encoding='utf-8', errors='ignore', timeout=8)
+            return out.strip()
+        except Exception:
+            return ''
+
+    resumen = {'interfaz': '-', 'estado': '-', 'ssid': '-'}
+    def set_if_nonempty(key, value):
+        v = (value or '').strip()
+        if v:
+            resumen[key] = v
+
+    os_name = platform.system()
+    if os_name == 'Windows':
+        raw = run(['netsh', 'wlan', 'show', 'interfaces'])
+        if raw:
+            m = re.search(r"(?im)^\s*Nombre\s*:\s*(.+)$|^\s*Name\s*:\s*(.+)$", raw)
+            set_if_nonempty('interfaz', (m.group(1) or m.group(2)) if m else '')
+            m = re.search(r"(?im)^\s*Estado\s*:\s*(.+)$|^\s*State\s*:\s*(.+)$", raw)
+            set_if_nonempty('estado', (m.group(1) or m.group(2)) if m else '')
+            m = re.search(r"(?im)^\s*SSID\s*:\s*(.+)$", raw)
+            set_if_nonempty('ssid', m.group(1) if m else '')
+    elif os_name == 'Linux':
+        if shutil.which('nmcli'):
+            out = run(['nmcli', '-t', '-f', 'DEVICE,TYPE,STATE,CONNECTION', 'device'])
+            for line in (out or '').splitlines():
+                parts = line.split(':')
+                if len(parts) >= 4 and parts[1] == 'wifi':
+                    set_if_nonempty('interfaz', parts[0])
+                    set_if_nonempty('estado', parts[2])
+                    set_if_nonempty('ssid', parts[3])
+                    break
+        else:
+            if shutil.which('iwgetid'):
+                ss = run(['iwgetid', '-r'])
+                set_if_nonempty('ssid', ss)
+            link = run(['ip', '-br', 'link'])
+            if link:
+                for ln in link.splitlines():
+                    cols = ln.split()
+                    if len(cols) >= 2 and 'UP' in cols[1]:
+                        iface = cols[0]
+                        if not iface.startswith('lo'):
+                            set_if_nonempty('interfaz', iface)
+                            set_if_nonempty('estado', 'UP')
+                            break
+    elif os_name == 'Darwin':
+        airport_bin = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
+        raw = run([airport_bin, '-I'])
+        if raw:
+            m = re.search(r"(?im)^\s*SSID\s*:\s*(.+)$", raw)
+            set_if_nonempty('ssid', m.group(1) if m else '')
+        raw_ifconfig = run(['ifconfig'])
+        if raw_ifconfig:
+            current = None
+            for ln in raw_ifconfig.splitlines():
+                if not ln.startswith('\t') and ':' in ln:
+                    current = ln.split(':', 1)[0]
+                if 'status: active' in ln and current:
+                    set_if_nonempty('interfaz', current)
+                    set_if_nonempty('estado', 'active')
+                    break
+    return resumen
 
 
 
