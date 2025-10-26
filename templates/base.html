@@ -26,7 +26,11 @@
           <a class="nav-link" href="/traffic/">Tr&aacute;fico</a>
           <a class="nav-link" href="/diagnostics/">Comandos &uacute;tiles</a>
         </div>
-        <div class="d-flex">
+        <div class="d-flex align-items-center">
+          <div class="form-check form-switch text-light me-3">
+            <input class="form-check-input" type="checkbox" id="themeToggle">
+            <label class="form-check-label" for="themeToggle">Oscuro</label>
+          </div>
           {% if request.user.is_authenticated %}
             <span class="navbar-text me-3">Hola, {{ request.user.username }}!</span>
             <a class="btn btn-outline-light btn-sm" href="/accounts/logout/">Salir</a>
@@ -47,6 +51,36 @@
     </main>
     <script>
       (function(){
+        // Tema claro/oscuro con Bootstrap 5.3 (data-bs-theme)
+        var key = 'theme';
+        function applyTheme(t){
+          try { document.documentElement.setAttribute('data-bs-theme', t); } catch(_) {}
+          try {
+            var cb = document.getElementById('themeToggle');
+            if (cb) cb.checked = (t === 'dark');
+          } catch(_) {}
+        }
+        function getPreferred(){
+          var stored = null;
+          try { stored = localStorage.getItem(key); } catch(_) {}
+          if (stored === 'dark' || stored === 'light') return stored;
+          try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch(_) {}
+          return 'light';
+        }
+        var current = getPreferred();
+        applyTheme(current);
+        document.addEventListener('DOMContentLoaded', function(){
+          var cb = document.getElementById('themeToggle');
+          if (cb) {
+            cb.checked = (current === 'dark');
+            cb.addEventListener('change', function(){
+              var t = cb.checked ? 'dark' : 'light';
+              try { localStorage.setItem(key, t); } catch(_) {}
+              applyTheme(t);
+            });
+          }
+        });
+
         function showOverlay(){ var el = document.getElementById('loadingOverlay'); if (el) el.style.display='block'; }
         function hideOverlay(){ var el = document.getElementById('loadingOverlay'); if (el) el.style.display='none'; }
         window.addEventListener('pageshow', hideOverlay);
