@@ -159,9 +159,14 @@ def signup(request):
 
 def diagnostics_info(request):
     """Página de diagnóstico: muestra salida cruda de comandos usados para escaneos."""
-    import platform, subprocess, shutil
+    import platform, subprocess, shutil, re
     os_name = platform.system()
     info = []
+    resumen = {
+        'interfaz': '-',
+        'estado': '-',
+        'ssid': '-',
+    }
 
     def run(cmd):
         try:
@@ -170,23 +175,93 @@ def diagnostics_info(request):
         except Exception as e:
             return f"<error> {e}"
 
+    def set_if_nonempty(key, value):
+        v = (value or '').strip()
+        if v:
+            resumen[key] = v
+
     if os_name == 'Windows':
+        # Resumen Wi‑Fi
+        raw = run(['netsh', 'wlan', 'show', 'interfaces'])
+        if raw and not raw.startswith('<error>'):
+            # Interfaz, Estado, SSID (multi-idioma aproximado)
+            m = re.search(r"(?im)^\s*Nombre\s*:\s*(.+)$|^\s*Name\s*:\s*(.+)$", raw)
+            set_if_nonempty('interfaz', (m.group(1) or m.group(2)) if m else '')
+            m = re.search(r"(?im)^\s*Estado\s*:\s*(.+)$|^\s*State\s*:\s*(.+)$", raw)
+            set_if_nonempty('estado', (m.group(1) or m.group(2)) if m else '')
+            m = re.search(r"(?im)^\s*SSID\s*:\s*(.+)$", raw)
+            set_if_nonempty('ssid', m.group(1) if m else '')
+
+        # Comandos útiles
         info.append(('arp -a', run(['arp', '-a'])))
         info.append(('netsh wlan show networks mode=bssid', run(['netsh', 'wlan', 'show', 'networks', 'mode=bssid'])))
         info.append(('ipconfig', run(['ipconfig'])))
     elif os_name == 'Linux':
+        # Resumen Wi‑Fi
+        if shutil.which('nmcli'):
+            out = run(['nmcli', '-t', '-f', 'DEVICE,TYPE,STATE,CONNECTION', 'device'])
+            # Buscar interfaz wifi conectada
+            for line in (out or '').splitlines():
+                parts = line.split(':')
+                if len(parts) >= 4 and parts[1] == 'wifi':
+                    set_if_nonempty('interfaz', parts[0])
+                    set_if_nonempty('estado', parts[2])
+                    set_if_nonempty('ssid', parts[3])
+                    break
+        else:
+            # iwgetid para SSID si existe
+            if shutil.which('iwgetid'):
+                ss = run(['iwgetid', '-r'])
+                set_if_nonempty('ssid', ss)
+            # ip -br link para interfaz UP
+            link = run(['ip', '-br', 'link'])
+            # Elegir la primera interfaz UP que no sea lo/eth tun
+            if link and not link.startswith('<error>'):
+                for ln in link.splitlines():
+                    cols = ln.split()
+                    if len(cols) >= 2 and 'UP' in cols[1]:
+                        iface = cols[0]
+                        if not iface.startswith('lo'):
+                            set_if_nonempty('interfaz', iface)
+                            set_if_nonempty('estado', 'UP')
+                            break
+
+        # Comandos útiles
         if shutil.which('nmcli'):
             info.append(('nmcli device wifi list', run(['nmcli', '-t', '-f', 'SSID,BSSID,CHAN,SIGNAL', 'device', 'wifi', 'list'])))
         info.append(('iw dev', run(['iw', 'dev'])))
         info.append(('iwlist scan', run(['iwlist', 'scan'])))
         info.append(('ip addr', run(['ip', 'addr'])))
     elif os_name == 'Darwin':
+        # Resumen Wi‑Fi
+        airport_bin = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
+        raw = run([airport_bin, '-I'])
+        if raw and not raw.startswith('<error>'):
+            m = re.search(r"(?im)^\s*agrCtlRSSI|.*$", raw)
+            # SSID y estado
+            m = re.search(r"(?im)^\s*SSID\s*:\s*(.+)$", raw)
+            set_if_nonempty('ssid', m.group(1) if m else '')
+            # interfaz
+            raw_ifconfig = run(['ifconfig'])
+            if raw_ifconfig and not raw_ifconfig.startswith('<error>'):
+                # Heurística: interfaz en líneas 'status: active' previas
+                current = None
+                for ln in raw_ifconfig.splitlines():
+                    if not ln.startswith('\t') and ':' in ln:
+                        current = ln.split(':', 1)[0]
+                    if 'status: active' in ln and current:
+                        set_if_nonempty('interfaz', current)
+                        set_if_nonempty('estado', 'active')
+                        break
+
+        # Comandos útiles
         info.append(('airport -s', run(['/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport', '-s'])))
         info.append(('ifconfig', run(['ifconfig'])))
 
     return render(request, 'diagnostics/diagnostics.html', {
         'os_name': os_name,
         'info': info,
+        'resumen': resumen,
     })
 
 
