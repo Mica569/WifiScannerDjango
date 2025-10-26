@@ -25,8 +25,17 @@ from .services.traffic_monitor import sample_bandwidth, as_mbps
 
 def dashboard(request):
     last_speed = SpeedTest.objects.order_by('-created_at').first()
-    devices_count = Device.objects.filter(created_at__date=timezone.now().date()).count()
-    wifi_count = WiFiNetwork.objects.filter(created_at__date=timezone.now().date()).count()
+    # Contar por fecha del último escaneo disponible para evitar ceros por huso horario
+    last_device = Device.objects.order_by('-created_at').first()
+    last_wifi = WiFiNetwork.objects.order_by('-created_at').first()
+    if last_device:
+        devices_count = Device.objects.filter(created_at__date=last_device.created_at.date()).count()
+    else:
+        devices_count = 0
+    if last_wifi:
+        wifi_count = WiFiNetwork.objects.filter(created_at__date=last_wifi.created_at.date()).count()
+    else:
+        wifi_count = 0
     # Valores seguros para JS (nÃºmeros, sin filtros en template)
     speed_dl = float(getattr(last_speed, 'download_mbps', 0) or 0)
     speed_ul = float(getattr(last_speed, 'upload_mbps', 0) or 0)
@@ -141,6 +150,39 @@ def signup(request):
     else:
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
+
+
+def diagnostics_info(request):
+    """Página de diagnóstico: muestra salida cruda de comandos usados para escaneos."""
+    import platform, subprocess, shutil
+    os_name = platform.system()
+    info = []
+
+    def run(cmd):
+        try:
+            out = subprocess.check_output(cmd, text=True, encoding='utf-8', errors='ignore', timeout=8)
+            return out.strip()
+        except Exception as e:
+            return f"<error> {e}"
+
+    if os_name == 'Windows':
+        info.append(('arp -a', run(['arp', '-a'])))
+        info.append(('netsh wlan show networks mode=bssid', run(['netsh', 'wlan', 'show', 'networks', 'mode=bssid'])))
+        info.append(('ipconfig', run(['ipconfig'])))
+    elif os_name == 'Linux':
+        if shutil.which('nmcli'):
+            info.append(('nmcli device wifi list', run(['nmcli', '-t', '-f', 'SSID,BSSID,CHAN,SIGNAL', 'device', 'wifi', 'list'])))
+        info.append(('iw dev', run(['iw', 'dev'])))
+        info.append(('iwlist scan', run(['iwlist', 'scan'])))
+        info.append(('ip addr', run(['ip', 'addr'])))
+    elif os_name == 'Darwin':
+        info.append(('airport -s', run(['/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport', '-s'])))
+        info.append(('ifconfig', run(['ifconfig'])))
+
+    return render(request, 'diagnostics/diagnostics.html', {
+        'os_name': os_name,
+        'info': info,
+    })
 
 
 
