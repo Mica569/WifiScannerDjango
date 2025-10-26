@@ -1,6 +1,7 @@
 ﻿from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
+from datetime import timedelta
 from .models import SpeedTest, Device, WiFiNetwork, TrafficSample
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
@@ -25,15 +26,19 @@ from .services.traffic_monitor import sample_bandwidth, as_mbps
 
 def dashboard(request):
     last_speed = SpeedTest.objects.order_by('-created_at').first()
-    # Contar por fecha del último escaneo disponible para evitar ceros por huso horario
+    # Contar dispositivos/redes de la "última tanda" por marca de tiempo, tolerancia ±5 min
     last_device = Device.objects.order_by('-created_at').first()
-    last_wifi = WiFiNetwork.objects.order_by('-created_at').first()
     if last_device:
-        devices_count = Device.objects.filter(created_at__date=last_device.created_at.date()).count()
+        t = last_device.created_at
+        devices_count = Device.objects.filter(created_at__gte=t - timedelta(minutes=5),
+                                              created_at__lte=t + timedelta(minutes=5)).count()
     else:
         devices_count = 0
+    last_wifi = WiFiNetwork.objects.order_by('-created_at').first()
     if last_wifi:
-        wifi_count = WiFiNetwork.objects.filter(created_at__date=last_wifi.created_at.date()).count()
+        t2 = last_wifi.created_at
+        wifi_count = WiFiNetwork.objects.filter(created_at__gte=t2 - timedelta(minutes=5),
+                                                created_at__lte=t2 + timedelta(minutes=5)).count()
     else:
         wifi_count = 0
     # Valores seguros para JS (nÃºmeros, sin filtros en template)

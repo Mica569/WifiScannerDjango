@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <h1>Dispositivos Conectados</h1>
+<p class="text-muted">Total en esta lista: <strong>{{ devices|length }}</strong></p>
 <table class="table table-striped">
   <thead><tr><th>IP</th><th>MAC</th><th>Hostname</th></tr></thead>
   <tbody>
